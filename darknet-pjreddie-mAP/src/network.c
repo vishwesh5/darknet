@@ -539,23 +539,17 @@ detection *make_network_boxes(network *net, float thresh, int *num)
     return dets;
 }
 
-void fill_network_boxes(network *net, int w, int h, float thresh, float hier, int *map, int relative, detection *dets, int letter)
+void fill_network_boxes(network *net, int w, int h, float thresh, float hier, int *map, int relative, detection *dets)
 {
-    int prev_classes = -1;
     int j;
     for(j = 0; j < net->n; ++j){
         layer l = net->layers[j];
         if(l.type == YOLO){
             int count = get_yolo_detections(l, w, h, net->w, net->h, thresh, map, relative, dets);
             dets += count;
-	    if (prev_classes < 0) prev_classes = l.classes;
-            else if (prev_classes != l.classes) {
-                printf(" Error: Different [yolo] layers have different number of classes = %d and %d - check your cfg-file! \n",
-                    prev_classes, l.classes);
-            }
         }
         if(l.type == REGION){
-            custom_get_region_detections(l, w, h, net->w, net->h, thresh, map, hier, relative, dets,letter);
+            get_region_detections(l, w, h, net->w, net->h, thresh, map, hier, relative, dets);
             dets += l.w*l.h*l.n;
         }
         if(l.type == DETECTION){
@@ -565,34 +559,10 @@ void fill_network_boxes(network *net, int w, int h, float thresh, float hier, in
     }
 }
 
-void custom_get_region_detections(layer l, int w, int h, int net_w, int net_h, float thresh, int *map, float hier, int relative, detection *dets, int letter)
-{
-    box* boxes = (box*)calloc(l.w * l.h * l.n, sizeof(box));
-    float** probs = (float**)calloc(l.w * l.h * l.n, sizeof(float*));
-    int i, j;
-    for (j = 0; j < l.w*l.h*l.n; ++j) probs[j] = (float*)calloc(l.classes, sizeof(float));
-    get_region_boxes(l, 1, 1, thresh, probs, boxes, 0, map);
-    for (j = 0; j < l.w*l.h*l.n; ++j) {
-        dets[j].classes = l.classes;
-        dets[j].bbox = boxes[j];
-        dets[j].objectness = 1;
-        for (i = 0; i < l.classes; ++i) {
-            dets[j].prob[i] = probs[j][i];
-        }
-    }
-
-    free(boxes);
-    free_ptrs((void **)probs, l.w*l.h*l.n);
-
-    //correct_region_boxes(dets, l.w*l.h*l.n, w, h, net_w, net_h, relative);
-    correct_yolo_boxes(dets, l.w*l.h*l.n, w, h, net_w, net_h, relative, letter);
-}
-
-
-detection *get_network_boxes(network *net, int w, int h, float thresh, float hier, int *map, int relative, int *num, int letter)
+detection *get_network_boxes(network *net, int w, int h, float thresh, float hier, int *map, int relative, int *num)
 {
     detection *dets = make_network_boxes(net, thresh, num);
-    fill_network_boxes(net, w, h, thresh, hier, map, relative, dets,letter);
+    fill_network_boxes(net, w, h, thresh, hier, map, relative, dets);
     return dets;
 }
 
